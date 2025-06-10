@@ -3,29 +3,37 @@
 #include <ArduinoJson.h>
 #include <sstream>
 
+// Helper to safely begin preferences namespace with fallback
+bool safePreferencesBegin(Preferences &prefs, const char *ns, bool readOnly) {
+    if (prefs.begin(ns, readOnly)) {
+        return true;
+    }
+    return prefs.begin(ns, false);
+}
+
 String JsonSettings::getString(const char *key) {
-    preferences.begin(name, true);
+    safePreferencesBegin(preferences, name, true);
     String value = preferences.getString(key, this->find(key).strDefault);
     preferences.end();
     return value;
 }
 
 int JsonSettings::getInt(const char *key) {
-    preferences.begin(name, true);
+    safePreferencesBegin(preferences, name, true);
     int value = preferences.getInt(key, this->find(key).intDefault);
     preferences.end();
     return value;
 }
 
 float JsonSettings::getFloat(const char *key) {
-    preferences.begin(name, true);
+    safePreferencesBegin(preferences, name, true);
     float value = preferences.getFloat(key, this->find(key).floatDefault);
     preferences.end();
     return value;
 }
 
 std::vector<int> JsonSettings::getIntVector(const char *key) {
-    preferences.begin(name, true);
+    safePreferencesBegin(preferences, name, true);
     String value = preferences.getString(key, this->find(key).strDefault);
     preferences.end();
 
@@ -45,19 +53,19 @@ std::vector<int> JsonSettings::getIntVector(const char *key) {
 }
 
 void JsonSettings::putString(const char *key, String value) {
-    preferences.begin(name, false);
+    safePreferencesBegin(preferences, name, false);
     preferences.putString(key, value);
     preferences.end();
 }
 
 void JsonSettings::putInt(const char *key, int value) {
-    preferences.begin(name, false);
+    safePreferencesBegin(preferences, name, false);
     preferences.putInt(key, value);
     preferences.end();
 }
 
 void JsonSettings::putFloat(const char *key, float value) {
-    preferences.begin(name, false);
+    safePreferencesBegin(preferences, name, false);
     preferences.putFloat(key, value);
     preferences.end();
 }
@@ -76,7 +84,7 @@ void JsonSettings::putIntVector(const char *key, std::vector<int> value) {
 JsonDocument JsonSettings::toJson() {
     JsonDocument settings;
 
-    preferences.begin(name, true);
+    safePreferencesBegin(preferences, name, true);
 
     for (const auto &pair : map) {
         const String &key = pair.first;
@@ -99,7 +107,7 @@ JsonDocument JsonSettings::toJson() {
 }
 
 bool JsonSettings::fromJson(JsonDocument settings) {
-    preferences.begin(name, false);
+    safePreferencesBegin(preferences, name, false);
 
     for (JsonPair kv : settings.as<JsonObject>()) {
         const char *key = kv.key().c_str();
@@ -125,7 +133,7 @@ bool JsonSettings::fromJson(JsonDocument settings) {
 }
 
 bool JsonSettings::reset() {
-    preferences.begin("config", false);
+    safePreferencesBegin(preferences, "config", false);
     preferences.clear();
     preferences.end();
 
