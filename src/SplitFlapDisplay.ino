@@ -276,6 +276,7 @@ String convertToStrftime(String userFormat) {
         {"{HH}", "%H"},   // Hours (24-hour clock, 00–23)
         {"{hh}", "%I"},   // Hours (12-hour clock, 01–12)
         {"{MM}", "%M"},   // Minutes (00–59)
+        {"{SS}", "%S"},   // Seconds (00–59)
         {"{AMPM}", "%p"}, // AM or PM
     };
 
