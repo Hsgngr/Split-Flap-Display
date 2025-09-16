@@ -25,7 +25,13 @@ SplitFlapModule::SplitFlapModule(
     uint8_t I2Caddress, int stepsPerFullRotation, int stepOffset, int magnetPos, int charsetSize
 )
     : address(I2Caddress), position(0), stepNumber(0), stepsPerRot(stepsPerFullRotation), charSetSize(charsetSize) {
-    magnetPosition = magnetPos + stepOffset;
+    int rawMagnet = magnetPos + stepOffset;
+    if (stepsPerRot > 0) {
+        // normalize to [0, stepsPerRot)
+        magnetPosition = ((rawMagnet % stepsPerRot) + stepsPerRot) % stepsPerRot;
+    } else {
+        magnetPosition = rawMagnet;
+    }
 
     chars = (charsetSize == 48) ? ExtendedChars : StandardChars;
     numChars = (charsetSize == 48) ? 48 : 37;
@@ -85,7 +91,8 @@ int SplitFlapModule::getCharPosition(char inputChar) {
     inputChar = toupper(inputChar);
     for (int i = 0; i < charSetSize; i++) {
         if (chars[i] == inputChar) {
-            return charPositions[i];
+            // Map character index relative to the calibrated magnet anchor
+            return (charPositions[i] + magnetPosition) % stepsPerRot;
         }
     }
     return 0; // Character not found, return blank

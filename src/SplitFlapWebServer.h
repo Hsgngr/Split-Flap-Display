@@ -64,6 +64,23 @@ class SplitFlapWebServer {
 
     int getCentering() { return centering; }
 
+    // Hardware change application flag
+    bool getHardwareChanged() const { return hardwareChanged; }
+    void clearHardwareChanged() { hardwareChanged = false; }
+
+    // Nudge request (processed in loop)
+    bool hasNudgeRequest() const { return nudgePending; }
+    void setNudgeRequest(int index, int delta) {
+        nudgeIndex = index;
+        nudgeDelta = delta;
+        nudgePending = true;
+    }
+    void consumeNudgeRequest(int &index, int &delta) {
+        index = nudgeIndex;
+        delta = nudgeDelta;
+        nudgePending = false;
+    }
+
   private:
     JsonSettings &settings;
 
@@ -91,6 +108,10 @@ class SplitFlapWebServer {
 
     bool rebootRequired;
     bool attemptReconnect;
+    bool hardwareChanged;
+    bool nudgePending = false;
+    int nudgeIndex = -1;
+    int nudgeDelta = 0;
     unsigned long lastCheckWifiTime;
     int wifiCheckInterval;
     AsyncWebServer server; // Declare server as a class member

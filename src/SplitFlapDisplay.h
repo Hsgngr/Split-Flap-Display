@@ -9,6 +9,7 @@
 #define MAX_RPM 15.0f
 
 class SplitFlapMqtt;
+class SplitFlapWebServer;
 
 class SplitFlapDisplay {
   public:
@@ -35,6 +36,7 @@ class SplitFlapDisplay {
     int getNumModules() { return numModules; }
     int getCharsetSize() const { return charSetSize; }
     void setMqtt(SplitFlapMqtt *mqttHandler);
+    void applyOffsetsOnce(float speed = MAX_RPM);
 
   private:
     JsonSettings &settings;

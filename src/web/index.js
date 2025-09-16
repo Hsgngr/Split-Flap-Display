@@ -33,6 +33,10 @@ document.addEventListener("alpine:init", () => {
         delay: 1,
         centerText: false,
 
+        // Calibration UI state
+        observedBoxes: [],
+        calibrating: false,
+
         get processing() {
             return (
                 this.saving || this.loading.settings || this.loading.timezones
@@ -76,6 +80,11 @@ document.addEventListener("alpine:init", () => {
                 .then((res) => res.json())
                 .then((data) => {
                     Object.assign(this.settings, data);
+                    // initialize calibration boxes to spaces with moduleCount length
+                    this.observedBoxes = Array.from(
+                        { length: this.settings.moduleCount || 0 },
+                        () => ""
+                    );
                 })
                 .catch(() =>
                     this.showDialog("Failed to load settings", "error", true),
@@ -188,6 +197,33 @@ document.addEventListener("alpine:init", () => {
                 .finally(() => (this.saving = false));
         },
 
+        calibrateFromObserved() {
+            this.calibrating = true;
+            // Ensure boxes length matches moduleCount and join into observed string
+            if (this.observedBoxes.length !== this.settings.moduleCount) {
+                this.observedBoxes = Array.from(
+                    { length: this.settings.moduleCount || 0 },
+                    (_, i) => this.observedBoxes[i] || ""
+                );
+            }
+            const observed = this.observedBoxes
+                .map((c) => (c && c.length ? c : " "))
+                .join("");
+            const payload = { observed, target: " " };
+            fetch("/calibrate/fromObserved", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    this.showDialog(data.message || "Calibrated", data.type || "success");
+                    // Refresh settings to pick up new offsets
+                    return fetch("/settings").then((r) => r.json()).then((s) => Object.assign(this.settings, s));
+                })
+                .catch(() => this.showDialog("Calibration failed", "error"))
+                .finally(() => (this.calibrating = false));
+        },
         reset() {
             if (
                 confirm("Are you sure you want to reset settings to defaults?")
@@ -215,6 +251,39 @@ document.addEventListener("alpine:init", () => {
 
             if (!persistent) {
                 setTimeout(() => (this.dialog.show = false), 3000);
+            }
+        },
+
+        setCalibBox(index, ev) {
+            let val = (ev.target.value || "").toString();
+            // keep only last char, uppercase; default to space
+            val = val.slice(-1).toUpperCase();
+            // allow empty to mean space later during submit
+            this.observedBoxes[index] = val;
+            ev.target.value = val;
+            if (val && index < (this.settings.moduleCount || 0) - 1) {
+                this.$nextTick(() => {
+                    const el = document.getElementById(`calib-${index + 1}`);
+                    if (el) {
+                        el.focus();
+                        el.select && el.select();
+                    }
+                });
+            }
+        },
+        handleCalibKey(index, ev) {
+            if (ev.key === "Backspace") {
+                const current = (this.observedBoxes[index] || "");
+                if (! current && index > 0) {
+                    ev.preventDefault();
+                    this.$nextTick(() => {
+                        const el = document.getElementById(`calib-${index - 1}`);
+                        if (el) {
+                            el.focus();
+                            el.select && el.select();
+                        }
+                    });
+                }
             }
         },
     }));

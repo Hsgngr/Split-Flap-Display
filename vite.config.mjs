@@ -18,6 +18,13 @@ export default defineConfig({
             },
         },
     },
+    server: {
+        proxy: {
+            "/settings": "http://splitflap.local",
+            "/text": "http://splitflap.local",
+            "/settings/reset": "http://splitflap.local",
+        },
+    },
     plugins: [
         tailwindcss(),
         {

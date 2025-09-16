@@ -14,7 +14,7 @@
 #endif
 
 SplitFlapWebServer::SplitFlapWebServer(JsonSettings &settings)
-    : settings(settings), server(80), multiWordDelay(1000), rebootRequired(false), attemptReconnect(false),
+    : settings(settings), server(80), multiWordDelay(1000), rebootRequired(false), attemptReconnect(false), hardwareChanged(false),
       multiWordCurrentIndex(0), numMultiWords(0), wifiCheckInterval(1000), connectionMode(0), checkDateInterval(250),
       centering(1) {
     lastSwitchMultiTime = millis();
@@ -389,6 +389,38 @@ void SplitFlapWebServer::startWebServer() {
             reconnect = true;
         }
 
+        // Hardware-affecting settings: track if any changed
+        auto markHardwareChange = [&]() { this->hardwareChanged = true; };
+
+        if (json["moduleOffsets"].is<String>() &&
+            json["moduleOffsets"].as<String>() != settings.getString("moduleOffsets")) {
+            markHardwareChange();
+        }
+        if (json["displayOffset"].is<int>() &&
+            json["displayOffset"].as<int>() != settings.getInt("displayOffset")) {
+            markHardwareChange();
+        }
+        if (json["magnetPosition"].is<int>() &&
+            json["magnetPosition"].as<int>() != settings.getInt("magnetPosition")) {
+            markHardwareChange();
+        }
+        if (json["stepsPerRot"].is<int>() &&
+            json["stepsPerRot"].as<int>() != settings.getInt("stepsPerRot")) {
+            markHardwareChange();
+        }
+        if (json["moduleCount"].is<int>() &&
+            json["moduleCount"].as<int>() != settings.getInt("moduleCount")) {
+            markHardwareChange();
+        }
+        if (json["moduleAddresses"].is<String>() &&
+            json["moduleAddresses"].as<String>() != settings.getString("moduleAddresses")) {
+            markHardwareChange();
+        }
+        if (json["charset"].is<int>() &&
+            json["charset"].as<int>() != settings.getInt("charset")) {
+            markHardwareChange();
+        }
+
         if (! settings.fromJson(json)) {
             response["message"] = "Failed to save settings";
             response["type"] = "error";
@@ -397,14 +429,147 @@ void SplitFlapWebServer::startWebServer() {
             return request->send(400, "application/json", response.as<String>());
         }
 
+        // If hardware-related settings changed, update live without reboot
+        if (this->hardwareChanged) {
+            response["message"] = "Settings updated successfully. Applying module offsets...";
+        }
+
         response["type"] = "success";
         response["persistent"] = reconnect;
 
         request->send(200, "application/json", response.as<String>());
 
+        // Apply side-effects after responding
         this->rebootRequired = rebootRequired;
         this->attemptReconnect = reconnect;
+        // No-op here; main loop checks this->hardwareChanged and applies
     }
+    ));
+
+    // Auto-calibrate offsets from observed display string to target (default space)
+    // Payload: {"observed":"ABCDEFG", "target":" "}
+    server.addHandler(new AsyncCallbackJsonWebHandler(
+        "/calibrate/fromObserved",
+        [this](AsyncWebServerRequest *request, JsonVariant &json) {
+            if (request->method() != HTTP_POST) {
+                return request->send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
+            }
+
+            JsonDocument response;
+            if (! json["observed"].is<String>()) {
+                response["message"] = "Invalid observed string";
+                response["type"] = "error";
+                return request->send(400, "application/json", response.as<String>());
+            }
+
+            String observed = json["observed"].as<String>();
+            char targetChar = ' ';
+            if (json["target"].is<String>() && json["target"].as<String>().length() > 0) {
+                targetChar = toupper(json["target"].as<String>()[0]);
+            }
+
+            int moduleCount = settings.getInt("moduleCount");
+            int charset = settings.getInt("charset");
+            int stepsPerRot = settings.getInt("stepsPerRot");
+            int numChars = (charset == 48 ? 48 : 37);
+            int stepsPerChar = stepsPerRot / numChars;
+
+            // Normalize observed string length to moduleCount
+            if (observed.length() < moduleCount) {
+                while (observed.length() < moduleCount) {
+                    observed += " ";
+                }
+            } else if (observed.length() > moduleCount) {
+                observed = observed.substring(0, moduleCount);
+            }
+
+            // Character sets
+            const char standardChars[37] = {' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+                                            'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y',
+                                            'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+            const char extendedChars[48] = {' ', 'A', 'B', 'C', 'D', 'E',  'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
+                                            'P', 'Q', 'R', 'S', 'T', 'U',  'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4',
+                                            '5', '6', '7', '8', '9', '\'', ':', '?', '!', '.', '-', '/', '$', '@', '#', '%'};
+            const char *chars = (charset == 48 ? extendedChars : standardChars);
+
+            auto indexOfChar = [&](char c) -> int {
+                c = toupper(c);
+                for (int i = 0; i < numChars; i++) {
+                    if (chars[i] == c) return i;
+                }
+                return -1;
+            };
+
+            int targetIdx = indexOfChar(targetChar);
+            if (targetIdx < 0) targetIdx = 0; // default to space
+
+            // Load and update offsets by minimal signed delta in characters
+            std::vector<int> offsets = settings.getIntVector("moduleOffsets");
+            JsonArray deltas = response.createNestedArray("deltaChars");
+            for (int i = 0; i < moduleCount; i++) {
+                int obsIdx = indexOfChar(observed[i]);
+                if (obsIdx < 0) {
+                    deltas.add(0);
+                    continue;
+                }
+                int forward = (targetIdx - obsIdx + numChars) % numChars; // 0..numChars-1
+                int signedDelta = forward;
+                if (forward > numChars / 2) {
+                    signedDelta = forward - numChars; // choose shortest path (negative)
+                }
+                offsets[i] += signedDelta * stepsPerChar;
+                deltas.add(signedDelta);
+            }
+
+            settings.putIntVector("moduleOffsets", offsets);
+            this->hardwareChanged = true; // loop will apply once
+
+            response["message"] = "Offsets updated from observed string";
+            response["type"] = "success";
+            return request->send(200, "application/json", response.as<String>());
+        }
+    ));
+
+    // Calibrate offset by whole characters for a single module
+    // Payload: {"index": <0-based>, "deltaChars": +/-1}
+    server.addHandler(new AsyncCallbackJsonWebHandler(
+        "/calibrate/offset",
+        [this](AsyncWebServerRequest *request, JsonVariant &json) {
+            if (request->method() != HTTP_POST) {
+                return request->send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
+            }
+
+            JsonDocument response;
+            if (! json["index"].is<int>() || ! json["deltaChars"].is<int>()) {
+                response["message"] = "Invalid payload";
+                response["type"] = "error";
+                return request->send(400, "application/json", response.as<String>());
+            }
+
+            int idx = json["index"].as<int>();
+            int deltaChars = json["deltaChars"].as<int>();
+
+            int moduleCount = settings.getInt("moduleCount");
+            if (idx < 0 || idx >= moduleCount) {
+                response["message"] = "Index out of range";
+                response["type"] = "error";
+                return request->send(400, "application/json", response.as<String>());
+            }
+
+            int stepsPerRot = settings.getInt("stepsPerRot");
+            int charset = settings.getInt("charset");
+            int stepsPerChar = stepsPerRot / (charset == 48 ? 48 : 37);
+
+            std::vector<int> offsets = settings.getIntVector("moduleOffsets");
+            offsets[idx] += deltaChars * stepsPerChar;
+            settings.putIntVector("moduleOffsets", offsets);
+            this->hardwareChanged = true; // loop will apply once
+
+            response["message"] = "Offset updated";
+            response["type"] = "success";
+            response["newOffset"] = offsets[idx];
+            return request->send(200, "application/json", response.as<String>());
+        }
     ));
 
     server

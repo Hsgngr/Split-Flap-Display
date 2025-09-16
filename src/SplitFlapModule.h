@@ -27,6 +27,17 @@ class SplitFlapModule {
         position = magnetPosition;
     } // update position to magnetposition, called when magnet is detected
 
+    // Update the effective magnet position using a base and an offset in steps
+    void setMagnetBaseAndOffset(int magnetBase, int stepOffset) {
+        int rawMagnet = magnetBase + stepOffset;
+        if (stepsPerRot > 0) {
+            int normalized = ((rawMagnet % stepsPerRot) + stepsPerRot) % stepsPerRot;
+            magnetPosition = normalized;
+        } else {
+            magnetPosition = rawMagnet;
+        }
+    }
+
     bool getHasErrored() const { return hasErrored; }
 
   private:

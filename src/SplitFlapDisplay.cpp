@@ -48,6 +48,60 @@ void SplitFlapDisplay::init() {
     }
 }
 
+void SplitFlapDisplay::applyOffsetsOnce(float speed) {
+    // Read current offsets from settings, compare to applied, and for changed modules:
+    // 1) Set new magnet base+offset (anchor)
+    // 2) Rotate 2048 + offsetDelta steps exactly ONCE to set physical anchor
+    std::vector<int> newOffsets = settings.getIntVector("moduleOffsets");
+
+    // Compute delta offsets per module
+    int delta[numModules];
+    bool any = false;
+    for (int i = 0; i < numModules; i++) {
+        int newOffset = newOffsets[i];
+        delta[i] = newOffset - moduleOffsets[i];
+        if (delta[i] != 0) {
+            any = true;
+        }
+    }
+
+    if (! any) {
+        return; // nothing to do
+    }
+
+    // Update stored offsets so repeated saves are idempotent
+    for (int i = 0; i < numModules; i++) {
+        moduleOffsets[i] = newOffsets[i];
+        modules[i].setMagnetBaseAndOffset(magnetPosition, moduleOffsets[i] + displayOffset);
+    }
+
+    // Build absolute targets: current position + (stepsPerRot + deltaSteps)
+    int targetPositions[numModules];
+    for (int i = 0; i < numModules; i++) {
+        if (delta[i] != 0) {
+            int deltaSteps = delta[i]; // offsets are already in steps
+            int steps = (modules[i].getPosition() + stepsPerRot + deltaSteps) % stepsPerRot;
+            targetPositions[i] = steps;
+        } else {
+            targetPositions[i] = modules[i].getPosition();
+        }
+    }
+
+    // Phase 1: make at least one full rotation + delta to guarantee magnet pass and re-anchor
+    moveTo(targetPositions, speed, false);
+
+    // Phase 2: send changed modules to space so absolute baseline is consistent
+    int targetSpace[numModules];
+    for (int i = 0; i < numModules; i++) {
+        if (delta[i] != 0) {
+            targetSpace[i] = modules[i].getCharPosition(' ');
+        } else {
+            targetSpace[i] = modules[i].getPosition();
+        }
+    }
+    moveTo(targetSpace, speed, true);
+}
+
 void SplitFlapDisplay::testAll() {
     char testChars[37] = {' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
                           'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
@@ -148,7 +202,8 @@ void SplitFlapDisplay::homeToChar(char homeChar, float speed) {
     for (int i = 0; i < numModules; i++) {
         targetPositions[i] = modules[i].getCharPosition(homeChar);
     }
-    moveTo(targetPositions, true, speed);
+    // correct parameter order: (targets, speed, releaseMotors)
+    moveTo(targetPositions, speed, true);
 }
 
 void SplitFlapDisplay::writeChar(char inputChar, float speed) {
@@ -211,13 +266,12 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
 
     unsigned long currentTime = micros();
 
-    int checkIntervalUs = 20 * 1000; // How often to check each modules hall effect sensor, less
-    // than 20ms causes issues with bouncing
+    int checkIntervalUs = 20 * 1000; // 10ms polling for hall effect sensor
     int startStopDelay = 200; // time to wait to let motor realign itself to
     // magnetic field on stop and start
 
-    bool resetLatches[numModules] = {}; // Initialize to false //start with latch on to prevent case where the
-    // motion starts with the magnet over the sensor
+    bool resetLatches[numModules] = {}; // deglitch latch: true prevents double-counting while sensor stays high
+    bool lastSensorState[numModules] = {}; // previous sampled state for rising-edge detection
     bool needsStepping[numModules] = {};             // Initialize to false; //modules that still require moving
     unsigned long lastStepTimes[numModules] = {};    // Initialize to false; //track when each module was last stepped
     unsigned long lastSensorCheckTime = currentTime; // track when we last read all the hall effect sensors
@@ -258,10 +312,11 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
         if ((currentTime - lastSensorCheckTime) > checkIntervalUs) { // check hall effect sensor every checkIntervalMs
             // check every modules sensor
             for (int i = 0; i < numModules; i++) {
-                if (needsStepping[i] &&
-                    (modules[i].readHallEffectSensor() == true
-                    )) { // only check sensors where the module is still moving
-                    if (! resetLatches[i]) {
+                if (needsStepping[i]) {
+                    bool currentState = modules[i].readHallEffectSensor();
+                    bool risingEdge = (currentState && ! lastSensorState[i]);
+                    lastSensorState[i] = currentState;
+                    if (risingEdge && ! resetLatches[i]) {
                         // UNCOMMENTING THIS WILL PROBBALY MAKE THE MOTORS INACCURATE, DUE
                         // TO TIME TAKEN TO PRINT
                         //  Serial.print("Module: ");
@@ -276,9 +331,10 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
                         modules[i].magnetDetected(); // update position to the modules
                         // magnet position
                         resetLatches[i] = true;
+                    } else if (! currentState) {
+                        // sensor low: clear latch so next rising edge re-zeros again
+                        resetLatches[i] = false;
                     }
-                } else if (resetLatches[i] == true) {
-                    resetLatches[i] = false;
                 }
             }
             isFinished = checkAllFalse(needsStepping, numModules);

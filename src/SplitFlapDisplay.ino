@@ -110,6 +110,12 @@ void loop() {
 
     reconnectIfNeeded();
 
+    // If hardware settings changed at runtime, apply offsets ONCE (idempotent)
+    if (webServer.getHardwareChanged()) {
+        display.applyOffsetsOnce(MAX_RPM);
+        webServer.clearHardwareChanged();
+    }
+
     webServer.checkRebootRequired();
     yield();
 }
