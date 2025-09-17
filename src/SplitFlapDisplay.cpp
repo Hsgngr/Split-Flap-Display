@@ -79,8 +79,7 @@ void SplitFlapDisplay::applyOffsetsOnce(float speed) {
     int targetPositions[numModules];
     for (int i = 0; i < numModules; i++) {
         if (delta[i] != 0) {
-            int deltaSteps = delta[i]; // offsets are already in steps
-            int steps = (modules[i].getPosition() + stepsPerRot + deltaSteps) % stepsPerRot;
+            int steps = (modules[i].getPosition() + stepsPerRot + delta[i]) % stepsPerRot;
             targetPositions[i] = steps;
         } else {
             targetPositions[i] = modules[i].getPosition();
