@@ -668,6 +668,15 @@
                     Reset to Defaults
                 </button>
 
+                <button
+                    class="w-full p-3 mt-2 text-lg font-semibold text-white bg-neutral-600 rounded-md hover:bg-neutral-500 transition-colors"
+                    x-on:click.prevent="restart()"
+                    :disabled="processing"
+                    :class="{'opacity-50 cursor-not-allowed': processing}"
+                >
+                    Reboot
+                </button>
+
                 <div class="w-full mt-4" x-data="{ showDebug: false }">
                     <a
                         href="#"

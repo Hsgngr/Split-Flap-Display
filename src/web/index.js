@@ -208,6 +208,16 @@ document.addEventListener("alpine:init", () => {
             }
         },
 
+        restart() {
+                fetch("/reboot", { method: "POST" })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        this.showDialog(data.message || "Rebooting...", "success",true);
+                        setTimeout(() => window.location.reload(), 10000);
+                    })
+                        .catch(() => this.showDialog("Failed to restart display.", "error"));                      
+        },
+
         showDialog(message, type = "success", persistent = false) {
             this.dialog.message = message;
             this.dialog.type = type;

@@ -344,6 +344,17 @@ void SplitFlapWebServer::startWebServer() {
         this->attemptReconnect = true;
     });
 
+    server.on("/reboot", HTTP_POST, [this](AsyncWebServerRequest *request) {
+        JsonDocument response;
+        response["message"] = "Rebooting device...";
+        response["type"] = "success";
+        response["persistent"] = true;
+        request->send(200, "application/json", response.as<String>());
+
+        // Defer actual restart to the main loop to avoid killing the HTTP response mid-flight
+        this->rebootRequired = true;
+    });
+
     server.addHandler(new AsyncCallbackJsonWebHandler(
         "/settings",
         [this](AsyncWebServerRequest *request, JsonVariant &json) {
