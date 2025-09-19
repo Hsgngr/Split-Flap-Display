@@ -25,9 +25,13 @@ class SplitFlapModule {
     // sensor
     void magnetDetected() {
         position = magnetPosition;
+        hasSeenMagnet = true;
     } // update position to magnetposition, called when magnet is detected
 
     bool getHasErrored() const { return hasErrored; }
+    bool getHasSeenMagnet() const { return hasSeenMagnet; }
+    uint8_t getAddress() const { return address; }
+    void clearHasSeenMagnet() { hasSeenMagnet = false; }
 
   private:
     uint8_t address;                // i2c address of module
@@ -35,6 +39,7 @@ class SplitFlapModule {
     int stepNumber;                 // current position in the stepping order, to make motor move
     int stepsPerRot;                // number of steps per rotation
     bool hasErrored = false;        // flag to indicate if an error has occurred
+    bool hasSeenMagnet = false;     // flag to indicate if magnet has been detected since boot/homing
 
     void writeIO(uint16_t data);    // write to motor in pins
 

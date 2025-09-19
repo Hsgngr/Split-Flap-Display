@@ -66,6 +66,12 @@ void SplitFlapModule::init() {
 
     stop();                                  // Write all motor coil inputs LOW
 
+    // Give the stepper a few initial steps with delays between them.
+    // Purpose:
+    //  - Energise each coil in sequence once (4 steps = full driver cycle).
+    //  - Ensures the driver’s stepping pattern and the motor’s rotor are aligned.
+    //  - Provides a clean "phase sync" at startup so later movements are reliable.
+    // After this priming sequence, stop() is called again to de-energise the coils.
     int initDelay = 100;
 
     delay(initDelay);
@@ -77,7 +83,6 @@ void SplitFlapModule::init() {
     delay(initDelay);
     step();
     delay(initDelay);
-
     stop();
 }
 
@@ -139,10 +144,11 @@ bool SplitFlapModule::readHallEffectSensor() {
         uint16_t inputState = 0;
 
         // Read the two bytes and combine them into a 16-bit value
-        inputState = Wire.read();             // Read the lower byte
-        inputState |= (Wire.read() << 8);     // Read the upper byte and shift it left
+        inputState = Wire.read();         // Read the lower byte
+        inputState |= (Wire.read() << 8); // Read the upper byte and shift it left
 
-        return (inputState & (1 << 15)) != 0; // If bit is 15, return HIGH, else LOW
+        // Many PCF8575 inputs are active-low with pull-ups; treat LOW as detection
+        return (inputState & (1 << 15)) == 0; // true when bit 15 is LOW (magnet detected)
     }
     return false;
 }

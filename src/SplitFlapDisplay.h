@@ -36,6 +36,12 @@ class SplitFlapDisplay {
     int getCharsetSize() const { return charSetSize; }
     void setMqtt(SplitFlapMqtt *mqttHandler);
 
+    // Diagnostics helpers
+    const SplitFlapModule &getModule(int index) const { return modules[index]; }
+    SplitFlapModule &getModuleMutable(int index) { return modules[index]; }
+    int getMagnetPosition() const { return magnetPosition; }
+    int getModuleOffset(int index) const { return moduleOffsets[index]; }
+
   private:
     JsonSettings &settings;
 

@@ -127,12 +127,33 @@ void SplitFlapDisplay::home(float speed) {
 
 void SplitFlapDisplay::homeToString(String homeString, float speed, bool centering) {
     Serial.println("Homing");
+    // Clear the hasSeenMagnet flags so we can see which modules actually detect during this homing.
+    for (int i = 0; i < numModules; i++) {
+        modules[i].clearHasSeenMagnet();
+    }
+
     int targetPositions[numModules];
     for (int i = 0; i < numModules; i++) {
         targetPositions[i] = (modules[i].getPosition() - 1 + stepsPerRot) % stepsPerRot;
     }
     startMotors();
     moveTo(targetPositions, speed, false);
+
+    // Retry once if any module did not detect the magnet.
+    bool anyMiss = false;
+    for (int i = 0; i < numModules; i++) {
+        if (! modules[i].getHasSeenMagnet()) {
+            anyMiss = true;
+            targetPositions[i] = (modules[i].getPosition() - 1 + stepsPerRot) % stepsPerRot;
+        } else {
+            // freeze modules that already homed
+            targetPositions[i] = modules[i].getPosition();
+        }
+    }
+    if (anyMiss) {
+        moveTo(targetPositions, speed, false);
+    }
+    // proceed with the rest of the homing
     writeString(homeString, speed, centering);
 }
 
@@ -248,8 +269,8 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
             if (((currentTime - lastStepTimes[i]) > timePerStep) && needsStepping[i]) {
                 modules[i].step();
                 lastStepTimes[i] = micros();
+
                 if (modules[i].getPosition() == targetPositions[i]) { // this module is not in the correct position,
-                    // requires stepping
                     needsStepping[i] = false;
                 }
             }
@@ -262,19 +283,7 @@ void SplitFlapDisplay::moveTo(int targetPositions[], float speed, bool releaseMo
                     (modules[i].readHallEffectSensor() == true
                     )) { // only check sensors where the module is still moving
                     if (! resetLatches[i]) {
-                        // UNCOMMENTING THIS WILL PROBBALY MAKE THE MOTORS INACCURATE, DUE
-                        // TO TIME TAKEN TO PRINT
-                        //  Serial.print("Module: ");
-                        //  Serial.print(i);
-                        //  Serial.print(" Magnet Position: ");
-                        //  Serial.print(modules[i].getMagnetPosition());
-                        //  Serial.print(" Actual Position: ");
-                        //  Serial.print(modules[i].getPosition());
-                        //  Serial.print(" Error: ");
-                        //  Serial.println((modules[i].getMagnetPosition() -
-                        //  modules[i].getPosition()));
-                        modules[i].magnetDetected(); // update position to the modules
-                        // magnet position
+                        modules[i].magnetDetected();
                         resetLatches[i] = true;
                     }
                 } else if (resetLatches[i] == true) {

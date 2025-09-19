@@ -10,6 +10,7 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <time.h>
+class SplitFlapDisplay;
 
 class SplitFlapWebServer {
   public:
@@ -64,6 +65,9 @@ class SplitFlapWebServer {
 
     int getCentering() { return centering; }
 
+    // Wire display for diagnostics
+    void setDisplay(SplitFlapDisplay *d) { display = d; }
+
   private:
     JsonSettings &settings;
 
@@ -94,4 +98,5 @@ class SplitFlapWebServer {
     unsigned long lastCheckWifiTime;
     int wifiCheckInterval;
     AsyncWebServer server; // Declare server as a class member
+    SplitFlapDisplay *display = nullptr;
 };

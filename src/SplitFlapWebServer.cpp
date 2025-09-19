@@ -1,5 +1,8 @@
 #include "SplitFlapWebServer.h"
 
+#include "SplitFlapDisplay.h"
+#include "SplitFlapModule.h"
+
 #include <ArduinoJson.h>
 #include <AsyncJson.h>
 
@@ -418,6 +421,32 @@ void SplitFlapWebServer::startWebServer() {
     }
     ));
 
+    // Diagnostics: expose module magnet/position info
+    server.on("/diagnostics/modules", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        JsonDocument response;
+        response["message"] = "OK";
+        response["type"] = "success";
+
+        JsonArray arr = response["modules"].to<JsonArray>();
+
+        if (this->display == nullptr) {
+            response["type"] = "error";
+            response["message"] = "Display not attached";
+            return request->send(500, "application/json", response.as<String>());
+        }
+
+        int num = display->getNumModules();
+        for (int i = 0; i < num; i++) {
+            const SplitFlapModule &m = display->getModule(i);
+            JsonObject o = arr.add<JsonObject>();
+            o["index"] = i;
+            o["address"] = m.getAddress();
+            o["hasSeenMagnet"] = m.getHasSeenMagnet();
+            o["offset"] = display->getModuleOffset(i);
+        }
+
+        request->send(200, "application/json", response.as<String>());
+    });
     server
         .addHandler(new AsyncCallbackJsonWebHandler("/text", [this](AsyncWebServerRequest *request, JsonVariant &json) {
         if (request->method() != HTTP_POST) {

@@ -68,6 +68,7 @@ void setup() {
         webServer.startWebServer();
 
         display.init();
+        webServer.setDisplay(&display);
         display.homeToString("");
 
         if (display.getNumModules() == 8) {
@@ -81,6 +82,7 @@ void setup() {
         webServer.startWebServer();
 
         display.init();
+        webServer.setDisplay(&display);
         splitflapMqtt.setup();
         splitflapMqtt.setDisplay(&display);
         display.setMqtt(&splitflapMqtt);
