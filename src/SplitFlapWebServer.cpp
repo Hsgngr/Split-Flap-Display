@@ -519,6 +519,41 @@ void SplitFlapWebServer::startWebServer() {
         request->send(200, "application/json", response.as<String>());
     }));
 
+    // Trigger a two-phase reveal write immediately
+    server.addHandler(new AsyncCallbackJsonWebHandler(
+        "/reveal",
+        [this](AsyncWebServerRequest *request, JsonVariant &json) {
+        if (request->method() != HTTP_POST) {
+            return request->send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
+        }
+
+        JsonDocument response;
+
+        if (this->display == nullptr) {
+            response["message"] = "Display not attached";
+            response["type"] = "error";
+            return request->send(500, "application/json", response.as<String>());
+        }
+
+        if (! json["text"].is<String>()) {
+            response["message"] = "Invalid text";
+            response["type"] = "error";
+            return request->send(400, "application/json", response.as<String>());
+        }
+
+        String text = decodeURIComponent(json["text"].as<String>());
+        bool center = json["center"].is<bool>() ? json["center"].as<bool>() : true;
+        float speed = json["speed"].is<float>() ? json["speed"].as<float>() : MAX_RPM;
+
+        // Execute reveal synchronously; this will block the handler until complete
+        display->writeStringReveal(text, speed, center);
+
+        response["message"] = "Reveal executed";
+        response["type"] = "success";
+        request->send(200, "application/json", response.as<String>());
+    }
+    ));
+
     server.onNotFound(fourOhFour);
 
     server.begin();

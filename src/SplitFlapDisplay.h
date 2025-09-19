@@ -21,6 +21,10 @@ class SplitFlapDisplay {
     );                                     // Move all modules at once to show a specific string
     void writeChar(char inputChar,
                    float speed = MAX_RPM); // sets all modules to a single char
+    void writeStringReveal(
+        String inputString, float speed = MAX_RPM,
+        bool centering = true
+    );                                     // Two-phase write with synchronized final reveal
     void moveTo(int targetPositions[], float speed = MAX_RPM, bool releaseMotors = true);
     void home(float speed = MAX_RPM);      // move home
     void homeToString(

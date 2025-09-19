@@ -96,6 +96,23 @@ int SplitFlapModule::getCharPosition(char inputChar) {
     return 0; // Character not found, return blank
 }
 
+int SplitFlapModule::getPrevCharPosition(char inputChar) {
+    inputChar = toupper(inputChar);
+    int targetIndex = -1;
+    for (int i = 0; i < charSetSize; i++) {
+        if (chars[i] == inputChar) {
+            targetIndex = i;
+            break;
+        }
+    }
+    if (targetIndex == -1) {
+        // fall back to space's previous if not found
+        targetIndex = 0;
+    }
+    int prevIndex = (targetIndex - 1 + numChars) % numChars;
+    return charPositions[prevIndex];
+}
+
 void SplitFlapModule::stop() {
     uint16_t stepState = 0b1111111111100001;
     writeIO(stepState);
