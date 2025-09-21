@@ -19,7 +19,7 @@
 SplitFlapWebServer::SplitFlapWebServer(JsonSettings &settings)
     : settings(settings), server(80), multiWordDelay(1000), rebootRequired(false), attemptReconnect(false),
       multiWordCurrentIndex(0), numMultiWords(0), wifiCheckInterval(1000), connectionMode(0), checkDateInterval(250),
-      centering(1) {
+      centering(1), reveal(0) {
     lastSwitchMultiTime = millis();
 }
 
@@ -487,6 +487,9 @@ void SplitFlapWebServer::startWebServer() {
 
         centering = json["center"].as<bool>() ? 1 : 0;
         Serial.println("centering: " + String(centering ? "true" : "false"));
+
+        reveal = json["reveal"].as<bool>() ? 1 : 0;
+        Serial.println("reveal: " + String(reveal ? "true" : "false"));
 
         if (json["mode"] == "single") {
             String word = decodeURIComponent(json["words"][0].as<String>());

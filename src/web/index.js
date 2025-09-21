@@ -31,7 +31,8 @@ document.addEventListener("alpine:init", () => {
         multiWord: "",
         multiWords: [],
         delay: 1,
-        centerText: false,
+        centerText: true,
+        revealMode: false,
 
         get processing() {
             return (
@@ -142,6 +143,7 @@ document.addEventListener("alpine:init", () => {
                             : this.multiWords,
                         delay: this.delay,
                         center: this.centerText,
+                        reveal: this.revealMode,
                     }),
                 })
                     .then((res) => res.json())

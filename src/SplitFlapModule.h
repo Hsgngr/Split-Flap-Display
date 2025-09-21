@@ -18,6 +18,7 @@ class SplitFlapModule {
 
     int getMagnetPosition() const { return magnetPosition; } // position where magnet is detected
     int getCharPosition(char inputChar);                     // get integer position given single character
+    int getPrevCharPosition(char inputChar);                 // get position of previous character in set order
     int getPosition() const { return position; }             // get integer position
     int getCharsetSize() const { return numChars; }          // getter for charset size
 
