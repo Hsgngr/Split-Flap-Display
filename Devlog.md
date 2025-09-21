@@ -1,9 +1,10 @@
-#DEVLOG
+# DEVLOG
 
 ## 2025-09-21
 
 - Now the reveal mode works with the UI.
-- Don't forget to 
+- Don't forget to
+
 ```bash
 pio run -e esp32_c3_ota -t upload
 
@@ -12,7 +13,8 @@ AND
 
 pio run -e esp32_c3_ota -t uploadfs
 ```
-otherwise the changes might not work. 
+
+otherwise the changes might not work.
 
 [TODO]There should be a better way to upload both of these changes without rebooting twice.
 
@@ -23,10 +25,12 @@ otherwise the changes might not work.
 ## 2025-09-19
 
 - Added a new mode to the web server that allows for a two-phase reveal write. Although this currently only works with post requests. Such as:
+
 ```bash
 curl -X POST http://splitflap.local/reveal \
   -H "Content-Type: application/json" \
   -d '{"text":"MANDA","center":true,"speed":15}'
 {"message":"Reveal executed","type":"success"}%    
 ```
+
 [DONE] I tried to add it to the web server so that it would work with the UI but not succesful yet. Will check out later.
