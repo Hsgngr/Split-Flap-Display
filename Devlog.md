@@ -9,6 +9,8 @@
 npx vite --host 
 ```
 
+- 8th module still failing after replacing hall sensor, motor, and case. Next I'll try the plastic cap/rod to rule out the new metal rod slipping; if it persists, it's likely a driver/perfboard/wiring issue on that module.
+
 ## 2025-09-21
 
 - Now the reveal mode works with the UI.
@@ -25,7 +27,7 @@ pio run -e esp32_c3_ota -t uploadfs
 
 otherwise the changes might not work.
 
-[TODO]There should be a better way to upload both of these changes without rebooting twice.
+[DONE]There should be a better way to upload both of these changes without rebooting twice. (Answer there is none.)
 
 [TODO] Check why Time is not working. (Also Date mode.)
 [TODO] Add to the Diagnosis, what the Display thinks that it shows. It can help us to debug.
