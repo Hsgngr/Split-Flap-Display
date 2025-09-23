@@ -1,5 +1,14 @@
 # DEVLOG
 
+## 2025-09-23
+
+- Changed the location of the reboot button to the settings page.
+- If you want to test how the website works without uploading the changes, you can use the following command:
+
+```zsh
+npx vite --host 
+```
+
 ## 2025-09-21
 
 - Now the reveal mode works with the UI.
