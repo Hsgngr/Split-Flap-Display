@@ -1,5 +1,6 @@
 {
     "UTC (GMT±0)": "UTC0",
+    "United Kingdom (GMT/BST)": "GMT0BST,M3.5.0/1,M10.5.0/2",
     "Central European Time (GMT+1)": "CET-1CEST,M3.5.0/2,M10.5.0/3",
     "Eastern European Time (GMT+2)": "EET-2EEST,M3.5.0/3,M10.5.0/4",
     "Moscow / East Africa (GMT+3)": "MSK-3",

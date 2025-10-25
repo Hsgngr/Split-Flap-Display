@@ -1,5 +1,19 @@
 # DEVLOG
 
+## 2025-10-25
+
+- Added the UK to the timezones.json file.
+- Don't forget to run `npm run assets` after changing the timezones.json file.
+I have added these new settings but actually turns out the esp32_c3 ota is having issues for with the memory, thats why I had to add these flags to the platformio.ini file to optimize the memory usage.
+```
+    '-flto'
+    '-ffunction-sections'
+    '-fdata-sections'
+    '-Wl,--gc-sections'
+build_unflags=
+    -fno-lto
+```
+
 ## 2025-09-23
 
 - Changed the location of the reboot button to the settings page.
