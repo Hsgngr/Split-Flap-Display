@@ -31,7 +31,8 @@ document.addEventListener("alpine:init", () => {
         multiWord: "",
         multiWords: [],
         delay: 1,
-        centerText: false,
+        centerText: true,
+        revealMode: false,
 
         get processing() {
             return (
@@ -142,6 +143,7 @@ document.addEventListener("alpine:init", () => {
                             : this.multiWords,
                         delay: this.delay,
                         center: this.centerText,
+                        reveal: this.revealMode,
                     }),
                 })
                     .then((res) => res.json())
@@ -206,6 +208,22 @@ document.addEventListener("alpine:init", () => {
                         this.showDialog("Failed to reset settings.", "error");
                     });
             }
+        },
+
+        restart() {
+            fetch("/reboot", { method: "POST" })
+                .then((res) => res.json())
+                .then((data) => {
+                    this.showDialog(
+                        data.message || "Rebooting...",
+                        "success",
+                        true,
+                    );
+                    setTimeout(() => window.location.reload(), 10000);
+                })
+                .catch(() =>
+                    this.showDialog("Failed to restart display.", "error"),
+                );
         },
 
         showDialog(message, type = "success", persistent = false) {

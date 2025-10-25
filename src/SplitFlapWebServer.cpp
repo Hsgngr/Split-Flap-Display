@@ -1,5 +1,8 @@
 #include "SplitFlapWebServer.h"
 
+#include "SplitFlapDisplay.h"
+#include "SplitFlapModule.h"
+
 #include <ArduinoJson.h>
 #include <AsyncJson.h>
 
@@ -16,7 +19,7 @@
 SplitFlapWebServer::SplitFlapWebServer(JsonSettings &settings)
     : settings(settings), server(80), multiWordDelay(1000), rebootRequired(false), attemptReconnect(false),
       multiWordCurrentIndex(0), numMultiWords(0), wifiCheckInterval(1000), connectionMode(0), checkDateInterval(250),
-      centering(1) {
+      centering(1), reveal(0) {
     lastSwitchMultiTime = millis();
 }
 
@@ -344,6 +347,17 @@ void SplitFlapWebServer::startWebServer() {
         this->attemptReconnect = true;
     });
 
+    server.on("/reboot", HTTP_POST, [this](AsyncWebServerRequest *request) {
+        JsonDocument response;
+        response["message"] = "Rebooting device...";
+        response["type"] = "success";
+        response["persistent"] = true;
+        request->send(200, "application/json", response.as<String>());
+
+        // Defer actual restart to the main loop to avoid killing the HTTP response mid-flight
+        this->rebootRequired = true;
+    });
+
     server.addHandler(new AsyncCallbackJsonWebHandler(
         "/settings",
         [this](AsyncWebServerRequest *request, JsonVariant &json) {
@@ -407,6 +421,32 @@ void SplitFlapWebServer::startWebServer() {
     }
     ));
 
+    // Diagnostics: expose module magnet/position info
+    server.on("/diagnostics/modules", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        JsonDocument response;
+        response["message"] = "OK";
+        response["type"] = "success";
+
+        JsonArray arr = response["modules"].to<JsonArray>();
+
+        if (this->display == nullptr) {
+            response["type"] = "error";
+            response["message"] = "Display not attached";
+            return request->send(500, "application/json", response.as<String>());
+        }
+
+        int num = display->getNumModules();
+        for (int i = 0; i < num; i++) {
+            const SplitFlapModule &m = display->getModule(i);
+            JsonObject o = arr.add<JsonObject>();
+            o["index"] = i;
+            o["address"] = m.getAddress();
+            o["hasSeenMagnet"] = m.getHasSeenMagnet();
+            o["offset"] = display->getModuleOffset(i);
+        }
+
+        request->send(200, "application/json", response.as<String>());
+    });
     server
         .addHandler(new AsyncCallbackJsonWebHandler("/text", [this](AsyncWebServerRequest *request, JsonVariant &json) {
         if (request->method() != HTTP_POST) {
@@ -448,6 +488,9 @@ void SplitFlapWebServer::startWebServer() {
         centering = json["center"].as<bool>() ? 1 : 0;
         Serial.println("centering: " + String(centering ? "true" : "false"));
 
+        reveal = json["reveal"].as<bool>() ? 1 : 0;
+        Serial.println("reveal: " + String(reveal ? "true" : "false"));
+
         if (json["mode"] == "single") {
             String word = decodeURIComponent(json["words"][0].as<String>());
             Serial.println("Single Word: " + word);
@@ -478,6 +521,41 @@ void SplitFlapWebServer::startWebServer() {
 
         request->send(200, "application/json", response.as<String>());
     }));
+
+    // Trigger a two-phase reveal write immediately
+    server.addHandler(new AsyncCallbackJsonWebHandler(
+        "/reveal",
+        [this](AsyncWebServerRequest *request, JsonVariant &json) {
+        if (request->method() != HTTP_POST) {
+            return request->send(405, "application/json", "{\"error\":\"Method Not Allowed\"}");
+        }
+
+        JsonDocument response;
+
+        if (this->display == nullptr) {
+            response["message"] = "Display not attached";
+            response["type"] = "error";
+            return request->send(500, "application/json", response.as<String>());
+        }
+
+        if (! json["text"].is<String>()) {
+            response["message"] = "Invalid text";
+            response["type"] = "error";
+            return request->send(400, "application/json", response.as<String>());
+        }
+
+        String text = decodeURIComponent(json["text"].as<String>());
+        bool center = json["center"].is<bool>() ? json["center"].as<bool>() : true;
+        float speed = json["speed"].is<float>() ? json["speed"].as<float>() : MAX_RPM;
+
+        // Execute reveal synchronously; this will block the handler until complete
+        display->writeStringReveal(text, speed, center);
+
+        response["message"] = "Reveal executed";
+        response["type"] = "success";
+        request->send(200, "application/json", response.as<String>());
+    }
+    ));
 
     server.onNotFound(fourOhFour);
 

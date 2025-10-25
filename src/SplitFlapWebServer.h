@@ -10,6 +10,7 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <time.h>
+class SplitFlapDisplay;
 
 class SplitFlapWebServer {
   public:
@@ -63,6 +64,9 @@ class SplitFlapWebServer {
     int getDateCheckInterval() { return checkDateInterval; }
 
     int getCentering() { return centering; }
+    int getReveal() { return reveal; }
+    // Wire display for diagnostics
+    void setDisplay(SplitFlapDisplay *d) { display = d; }
 
   private:
     JsonSettings &settings;
@@ -79,6 +83,7 @@ class SplitFlapWebServer {
 
     int connectionMode; // 0 is AP mode, 1 is Internet Mode
     int centering;      // whether to center text from custom imput
+    int reveal;         // whether to use reveal mode for custom input
 
     int numMultiWords;
     unsigned long lastSwitchMultiTime;
@@ -94,4 +99,5 @@ class SplitFlapWebServer {
     unsigned long lastCheckWifiTime;
     int wifiCheckInterval;
     AsyncWebServer server; // Declare server as a class member
+    SplitFlapDisplay *display = nullptr;
 };

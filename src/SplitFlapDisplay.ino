@@ -68,6 +68,7 @@ void setup() {
         webServer.startWebServer();
 
         display.init();
+        webServer.setDisplay(&display);
         display.homeToString("");
 
         if (display.getNumModules() == 8) {
@@ -81,6 +82,7 @@ void setup() {
         webServer.startWebServer();
 
         display.init();
+        webServer.setDisplay(&display);
         splitflapMqtt.setup();
         splitflapMqtt.setDisplay(&display);
         display.setMqtt(&splitflapMqtt);
@@ -117,7 +119,11 @@ void loop() {
 void singleInputMode() {
     String userInput = webServer.getInputString();
     if (userInput != webServer.getWrittenString()) {
-        display.writeString(userInput, MAX_RPM, webServer.getCentering());
+        if (webServer.getReveal()) {
+            display.writeStringReveal(userInput, MAX_RPM, webServer.getCentering());
+        } else {
+            display.writeString(userInput, MAX_RPM, webServer.getCentering());
+        }
         webServer.setWrittenString(userInput);
     }
 }
@@ -128,7 +134,11 @@ void multiInputMode() {
         String userInput = webServer.getMultiInputString();
         String currWord = extractFromCSV(userInput, webServer.getMultiWordCurrentIndex());
         if (currWord != webServer.getWrittenString()) {
-            display.writeString(currWord, MAX_RPM, webServer.getCentering());
+            if (webServer.getReveal()) {
+                display.writeStringReveal(currWord, MAX_RPM, webServer.getCentering());
+            } else {
+                display.writeString(currWord, MAX_RPM, webServer.getCentering());
+            }
             webServer.setWrittenString(currWord);
         }
         webServer.setLastSwitchMultiTime(millis());
