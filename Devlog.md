@@ -1,5 +1,8 @@
 # DEVLOG
 
+## 2026-01-14
+- Changed the default time format to {HH}:{MM} from {HH}:{mm}.
+
 ## 2025-10-25
 
 - Added the UK to the timezones.json file.
